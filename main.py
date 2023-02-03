@@ -1,3 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+File: main.py(吾爱破解签到)
+Author: Mrzqd
+Date: 2023/2/4 08:00
+cron: 1 1 1 1 1 *
+new Env('吾爱破解签到');
+"""
+
 import requests
 from bs4 import BeautifulSoup
 
