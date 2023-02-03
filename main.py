@@ -16,17 +16,14 @@ headers = {
 }
 r = requests.get(url1, headers=headers, allow_redirects=False)
 s_cookie = r.headers['Set-Cookie']
-print(s_cookie)
 cookie = cookie + s_cookie
 headers['Cookie'] = cookie
 r = requests.get(url2, headers=headers, allow_redirects=False)
 s_cookie = r.headers['Set-Cookie']
-print(s_cookie)
 cookie = cookie + s_cookie
 headers['Cookie'] = cookie
 r = requests.get(url3, headers=headers)
 r_data = BeautifulSoup(r.text, "html.parser")
-print(r_data)
 jx_data = r_data.find("div", id="messagetext").find("p").text
 if "您需要先登录才能继续本操作" in jx_data:
     print("Cookie 失效")
