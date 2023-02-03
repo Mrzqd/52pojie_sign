@@ -5,7 +5,7 @@
 File: main.py(吾爱破解签到)
 Author: Mrzqd
 Date: 2023/2/4 08:00
-cron: 1 1 1 1 1 *
+cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
 
