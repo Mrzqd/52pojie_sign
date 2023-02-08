@@ -28,7 +28,6 @@ for i in cookie_list:
 if not ('htVC_2132_saltkey' in cookie or 'htVC_2132_auth' in cookie):
     print("cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
     sys.exit()
-print(cookie)
 headers = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
