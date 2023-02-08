@@ -8,14 +8,26 @@ Date: 2023/2/4 08:00
 cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
+import sys
 
 import requests
 from bs4 import BeautifulSoup
 
 cookie = ""
-url1 = 'https://www.52pojie.cn/CSPDREL2hvbWUucGhwP21vZD10YXNrJmRvPWFwcGx5JmlkPTImcmVmZXJlcj0lMkY=?wzwscspd=MC4wLjAuMA=='
+url1 = "https://www.52pojie.cn/CSPDREL2hvbWUucGhwP21vZD10YXNrJmRvPWRyYXcmaWQ9Mg==?wzwscspd=MC4wLjAuMA=="
 url2 = 'https://www.52pojie.cn/home.php?mod=task&do=apply&id=2&referer=%2F'
 url3 = 'https://www.52pojie.cn/home.php?mod=task&do=draw&id=2'
+cookie_list = cookie.split(";")
+cookie = ''
+for i in cookie_list:
+    key = i.split("=")[0]
+    if "htVC_2132_saltkey" in key:
+        cookie += "htVC_2132_saltkey=" + i.split("=")[1] + "; "
+    if "htVC_2132_auth" in key:
+        cookie += "htVC_2132_auth=" + i.split("=")[1] + ";"
+if not ('htVC_2132_saltkey' in cookie or 'htVC_2132_auth' in cookie):
+    print("cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
+    sys.exit()
 headers = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
