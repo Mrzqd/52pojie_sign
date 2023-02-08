@@ -9,7 +9,7 @@ cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
 import sys
-
+import urllib.parse
 import requests
 from bs4 import BeautifulSoup
 
@@ -22,12 +22,13 @@ cookie = ''
 for i in cookie_list:
     key = i.split("=")[0]
     if "htVC_2132_saltkey" in key:
-        cookie += "htVC_2132_saltkey=" + i.split("=")[1] + "; "
+        cookie += "htVC_2132_saltkey=" + urllib.parse.quote(i.split("=")[1]) + "; "
     if "htVC_2132_auth" in key:
-        cookie += "htVC_2132_auth=" + i.split("=")[1] + ";"
+        cookie += "htVC_2132_auth=" + urllib.parse.quote(i.split("=")[1]) + ";"
 if not ('htVC_2132_saltkey' in cookie or 'htVC_2132_auth' in cookie):
     print("cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
     sys.exit()
+print(cookie)
 headers = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
