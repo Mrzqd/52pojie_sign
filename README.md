@@ -1,5 +1,6 @@
 # 52pojie_sign
 吾爱破解签到脚本
+# 如果您感觉有用请您为本项目点个star
 # 第一步获取吾爱cookie
 ![image](https://user-images.githubusercontent.com/104408988/215322514-71589c11-1454-4db1-acf5-3d0066c8334b.png)
 # 第二步
