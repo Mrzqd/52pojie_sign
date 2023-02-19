@@ -11,4 +11,4 @@
 # 新增阿里网盘签到
 参考了([ImYrS/aliyun-auto-signin](https://github.com/ImYrS/aliyun-auto-signin))大佬的项目，感谢！
 # 使用方法
-首次运行会生成aliwangpan.json配置文件，将自己获取的refresh_token填入，并将is的值修改为1即可
+首次运行会生成aliwangpan.json配置文件，将自己获取的refresh_token填入，并将is的值修改为1即可！
