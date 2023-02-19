@@ -8,5 +8,7 @@
 本地运行，青龙(青龙可以在环境变量添加PJ52_COOKIE，多账户直接添加多个PJ52_COOKIE即可)运行均可（需要requests和bs4依赖）
 # 如有疑问请加TG群https://t.me/+_5A4908lol84NzVl，
 # 有疑问就上tg问吧，issues交流太麻烦了，issues就关了
-
-
+# 新增阿里网盘签到
+参考了([ImYrS/aliyun-auto-signin](https://github.com/ImYrS/aliyun-auto-signin))大佬的项目，感谢！
+# 使用方法
+首次运行会生成aliwangpan.json配置文件，将自己获取的refresh_token填入，并将is的值修改为1即可
