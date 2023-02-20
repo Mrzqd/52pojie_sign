@@ -150,12 +150,14 @@ def main():
                 or not access_token
         ):
             logging.info('access_token 已过期, 正在更新...')
-            user = update_access_token(user['refresh_token'])
-            if not user:
+            update_user = update_access_token(user['refresh_token'])
+            if not update_user:
                 logging.error('更新 access_token 失败.')
                 user = {"refresh_token": "此refresh已失效", "is": 0}
                 update_token_file(num, user)
                 continue
+            for i in update_user:
+                user[i] = update_user[i]
             user['is'] = 1
             update_token_file(num, user)
         # 签到
