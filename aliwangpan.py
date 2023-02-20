@@ -113,6 +113,7 @@ def update_token_file(num: int, data: dict):
     :param data: data
     :param num: 第几个用户
     """
+    num -= 1
     with open('aliconfig.json', 'r', encoding="utf-8") as f:
         config = json.load(f)
     config[num] = data
@@ -131,9 +132,9 @@ def main():
         config = json.load(f)
     num = 0
     for user in config:
+        num += 1
         if user['is'] == 0:
             logging.info(f'第{num}个 is值为0, 不进行任务')
-            num += 1
             continue
         try:
             t = user['expired_at']
@@ -167,7 +168,6 @@ def main():
         else:
             user["sign_time"] = datetime.now().strftime('%Y-%m-%d')
             update_token_file(num, user)
-        num += 1
 
 
 if __name__ == '__main__':
