@@ -5,7 +5,7 @@
 File: aliwangpan.py(阿里网盘签到)
 Author: Mrzqd
 Date: 2023/2/19 14:25
-cron: */10 * 2 * *
+cron: */10 * * 2 *
 new Env('阿里网盘签到');
 """
 
