@@ -11,6 +11,7 @@ new Env('阿里网盘签到');
 
 import json
 import logging
+import notify
 import os
 from datetime import datetime
 from time import mktime, time
@@ -84,6 +85,7 @@ def sign_in(access_token: str) -> bool:
     )
     logging.info(f'签到成功, 本月累计签到 {data["result"]["signInCount"]} 天.')
     logging.info(f'本次签到 {reward}')
+    mess = f'签到成功, 本月累计签到 {data["result"]["signInCount"]} 天. 本次签到 {reward}'
     return True
 
 
@@ -121,6 +123,9 @@ def update_token_file(num: int, data: dict):
         f.write(json.dumps(config, indent=4, ensure_ascii=False))
 
 
+global mess
+
+
 def main():
     # 判断是否存在文件
     if not os.path.exists('aliconfig.json'):
@@ -133,6 +138,7 @@ def main():
     num = 0
     for user in config:
         num += 1
+        mess = ''
         if user['is'] == 0:
             logging.info(f'第{num}个 is值为0, 不进行任务')
             continue
@@ -166,10 +172,12 @@ def main():
             continue
         if not sign_in(user['access_token']):
             logging.error('签到失败.')
+            mess = f'第{num}个用户签到失败'
             continue
         else:
             user["sign_time"] = datetime.now().strftime('%Y-%m-%d')
             update_token_file(num, user)
+        notify.send("吾爱签到", mess)
 
 
 if __name__ == '__main__':
