@@ -40,13 +40,15 @@ for cookie in cookies.split("&"):
         print("第{n}cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
         sys.exit()
     headers = {
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,"
+                  "application/signed-exchange;v=b3;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
         "Accept-Language": "zh-CN,zh;q=0.9",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
         "Cookie": cookie,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/109.0.0.0 Safari/537.36",
     }
     r = requests.get(url1, headers=headers, allow_redirects=False)
     s_cookie = r.headers['Set-Cookie']
@@ -74,7 +76,8 @@ for cookie in cookies.split("&"):
     n += 1
     try:
         import notify
-
-        notify.send("吾爱签到", message)
     except:
+        print("非青龙面板环境，跳过推送")
         pass
+    else:
+        notify.send("吾爱签到", message)
