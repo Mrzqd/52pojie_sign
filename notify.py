@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # _*_ coding:utf-8 _*_
+"""
+Date: 2023/2/19 14:25
+cron: 1 1 1 1 1
+"""
 import base64
 import hashlib
 import hmac
