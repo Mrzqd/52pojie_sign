@@ -10,10 +10,12 @@ new Env('吾爱破解签到');
 """
 import os
 import sys
-import notify
 import urllib.parse
+
 import requests
 from bs4 import BeautifulSoup
+
+import notify
 
 # 多cookie使用&分割
 cookies = ""
@@ -53,13 +55,16 @@ for cookie in cookies.split("&"):
     }
     r = requests.get(url1, headers=headers, allow_redirects=False)
     s_cookie = r.headers['Set-Cookie']
+    # print(f"第一个s_cookie:"+s_cookie)
     cookie = cookie + s_cookie
     headers['Cookie'] = cookie
     r = requests.get(url2, headers=headers, allow_redirects=False)
     s_cookie = r.headers['Set-Cookie']
+    # print(f"第二个s_cookie:"+s_cookie)
     cookie = cookie + s_cookie
     headers['Cookie'] = cookie
     r = requests.get(url3, headers=headers)
+    # print(r.status_code, r.text)
     r_data = BeautifulSoup(r.text, "html.parser")
     jx_data = r_data.find("div", id="messagetext").find("p").text
     if "您需要先登录才能继续本操作" in jx_data:

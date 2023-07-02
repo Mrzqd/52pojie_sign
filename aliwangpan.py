@@ -78,14 +78,12 @@ def sign_in(access_token: str) -> bool:
             current_day = data['result']['signInLogs'][i - 1]
             break
 
-    reward = (
-        '无奖励'
-        if not current_day['isReward']
-        else f'获得 {current_day["reward"]["name"]} {current_day["reward"]["description"]}'
-    )
     logging.info(f'签到成功, 本月累计签到 {data["result"]["signInCount"]} 天.')
-    logging.info(f'本次签到 {reward}')
-    mess = f'签到成功, 本月累计签到 {data["result"]["signInCount"]} 天. 本次签到 {reward}'
+    mess = f'签到成功, 本月累计签到 {data["result"]["signInCount"]} 天. '
+    if data["result"]["signInCount"] >= len(data['result']['signInLogs']):
+        logging.info('本月签到完成，开始兑换奖励')
+        mess += "本月签到完成，开始兑换奖励"
+        reward_all(access_token, len(data['result']['signInLogs']))
     notify.send("阿里云盘", mess)
     return True
 
@@ -122,6 +120,32 @@ def update_token_file(num: int, data: dict):
     config[num] = data
     with open('aliconfig.json', 'w', encoding="utf-8") as f:
         f.write(json.dumps(config, indent=4, ensure_ascii=False))
+
+
+def reward_all(access_token, max_day):
+    """
+    兑换当月全部奖励
+
+    :param max_day: 最大天数
+    :return:
+    """
+    url = 'https://member.aliyundrive.com/v1/activity/sign_in_reward'
+    params = {'_rx-s': 'mobile'}
+    headers = {'Authorization': f'Bearer {access_token}'}
+
+    for day in range(1, max_day + 1):
+        try:
+            requests.post(
+                url,
+                params=params,
+                headers=headers,
+                json={'signInDay': day},
+            )
+        except requests.RequestException as e:
+            logging.error(f'兑换第 {day} 天奖励失败, 错误信息: {e}')
+            return False
+
+    return True
 
 
 def main():
