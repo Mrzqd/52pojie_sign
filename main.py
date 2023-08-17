@@ -9,14 +9,16 @@ cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
 import os
+import random
 import sys
 import urllib.parse
+from time import sleep
 
 import requests
 from bs4 import BeautifulSoup
-
 import notify
 
+sleep_time = [100, 200]  # 随机等待时间默认在100-200秒之间
 # 多cookie使用&分割
 cookies = ""
 if cookies == "":
@@ -27,6 +29,7 @@ if cookies == "":
         sys.exit()
 n = 1
 for cookie in cookies.split("&"):
+    sleep(random.randint(sleep_time[0], sleep_time[1]))
     url1 = "https://www.52pojie.cn/CSPDREL2hvbWUucGhwP21vZD10YXNrJmRvPWRyYXcmaWQ9Mg==?wzwscspd=MC4wLjAuMA=="
     url2 = 'https://www.52pojie.cn/home.php?mod=task&do=apply&id=2&referer=%2F'
     url3 = 'https://www.52pojie.cn/home.php?mod=task&do=draw&id=2'
@@ -40,7 +43,7 @@ for cookie in cookies.split("&"):
         if "htVC_2132_auth" in key:
             cookie += "htVC_2132_auth=" + urllib.parse.quote(i.split("=")[1]) + ";"
     if not ('htVC_2132_saltkey' in cookie or 'htVC_2132_auth' in cookie):
-        print("第{n}cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
+        print(f"第{n}cookie中未包含htVC_2132_saltkey或htVC_2132_auth字段，请检查cookie")
         sys.exit()
     headers = {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,"
