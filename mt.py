@@ -22,10 +22,10 @@ sleep_time = [100, 200]  # 随机等待时间默认在100-200秒之间
 cookies = ""
 
 if cookies == "":
-    if os.environ.get("ENSHAN_COOKIE"):
-        cookies = os.environ.get("ENSHAN_COOKIE")
+    if os.environ.get("MT_COOKIE"):
+        cookies = os.environ.get("MT_COOKIE")
     else:
-        print("请在环境变量填写ENSHAN_COOKIE的值")
+        print("请在环境变量填写MT_COOKIE的值")
         sys.exit()
 n = 1
 list_cookie = cookies.split("&")
