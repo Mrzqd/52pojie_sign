@@ -47,11 +47,32 @@ for cookie in list_cookie:
     if not ('cQWy_2132_saltkey' in cookie or 'cQWy_2132_auth' in cookie):
         print(f"第{n}cookie中未包含TWcq_2132_saltkey或TWcq_2132_auth字段，请检查cookie")
         sys.exit()
-    url = 'https://bbs.binmt.cc/plugin.php?id=k_misign:sign&operation=qiandao&formhash=b4005020&format=empty&inajax=1&ajaxtarget='
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
         'Cookie': cookie
     }
+    getFormhashUrl = 'https://bbs.binmt.cc/k_misign-sign.html'
+    try:
+        r = requests.get(getFormhashUrl, headers=headers)
+        if r.status_code != 200:
+            print("获取formhash失败了~\n接口返回状态码:", str(r.status_code) + "\n接口返回内容:", r.text)
+            notify.send("MT论坛签到", "获取formhash失败了~\n接口返回状态码:" + str(r.status_code) + "\n接口返回内容:" + r.text)
+            continue
+    except Exception as e:
+        print("获取formhash失败了~\n错误原因:" + str(e))
+        notify.send("MT论坛签到", "获取formhash失败了~\n错误原因:" + str(e))
+        continue
+    # print(r.text)
+    pattern = r'<input\s+type="hidden"\s+name="formhash"\s+value="([^"]+)" />'
+    match = re.search(pattern, r.text)
+    if match:
+        formhash = match.group(1)
+        # print("formhash:", formhash)
+    else:
+        print("未正则到formhash，签到失败！")
+        notify.send("MT论坛签到", "未正则到formhash，签到失败！")
+        continue
+    url = f'https://bbs.binmt.cc/plugin.php?id=k_misign:sign&operation=qiandao&formhash={formhash}&format=empty&inajax=1&ajaxtarget='
     pattern = r"<!\[CDATA\[(.*?)\]\]>"
     try:
         r = requests.get(url, headers=headers)
