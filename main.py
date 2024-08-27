@@ -126,6 +126,7 @@ for cookie in cookies.split("&"):
     result = requests.post("https://52pojie-sign-sever.zzboy.tk/api/52pojie",json={"lz": lz, "lj": lj, "le": le,"token":token})
     if result.status_code != 200:
         print(result.json()['msg'])
+        print("请前往“https://zhustatus.azurewebsites.net/”查看“52POJIE-SIGN”的运行状态")
         sys.exit()
     # print(result.text)
     r = session.post(url4, headers=headers, cookies=cookie, data=result.text, proxies=None)
