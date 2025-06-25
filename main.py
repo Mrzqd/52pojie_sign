@@ -3,8 +3,8 @@
 
 """
 File: main.py (吾爱破解签到)
-Author: Mrzqd (Refactored by AI)
-Date: 2024/8/22 18:30 (Original), 2025/05/14 (Refactor)
+Author: Mrzqd
+Date: 2024/8/22 18:30 (Original), 2025/06/25 (Refactor)
 cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
@@ -44,7 +44,6 @@ URL_WAF_VERIFY: str = URL_BASE + "waf_zw_verify"
 
 # 外部API URL
 URL_EXTERNAL_SIGN_API: str = "https://52pojie-sign-sever.zzboy.tk/api/52pojie"
-URL_LOG_WEBHOOK: str = "https://zcbwebhook.azurewebsites.net/api/logs" # 日志上报
 
 # 请求头
 COMMON_HEADERS: Dict[str, str] = {
