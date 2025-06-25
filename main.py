@@ -2,302 +2,316 @@
 # -*- coding: utf-8 -*-
 
 """
-File: main.py(吾爱破解签到)
-Author: Mrzqd
-Date: 2024/8/22 18:30 (Original)
-Last Modified: 2025/05/14 (Optimization Date)
+File: main.py (吾爱破解签到)
+Author: Mrzqd (Refactored by AI)
+Date: 2024/8/22 18:30 (Original), 2025/05/14 (Refactor)
 cron: 30 7 * * *
 new Env('吾爱破解签到');
 """
+import json
 import os
+import random
 import re
 import sys
 import urllib.parse
-import random
 from time import sleep
+from typing import Dict, Tuple, Optional, List, Any
 
 import requests
 from bs4 import BeautifulSoup
 
-# 尝试导入notify模块，如果失败，则使用内置的简单打印版本
+# 尝试导入通知模块，如果失败则使用备用方案
 try:
     import notify
 except ImportError:
-    print("未找到 notify 模块，将使用print输出通知。")
-    class notify:
+    class NotifyPlaceholder:
         @staticmethod
-        def send(title, content):
-            print(f"通知 - {title}: {content}")
+        def send(title: str, content: str) -> None:
+            print(f"通知标题: {title}")
+            print(f"通知内容: {content}")
+    notify = NotifyPlaceholder()
 
-# --- 配置区域 ---
+
+# --- 配置与常量 ---
 # 随机等待时间范围（秒）
-SLEEP_TIME_RANGE = [100, 200]
+SLEEP_TIME_RANGE: List[int] = [60, 180] # 稍微降低了默认值，原为 [100, 200]
 
-# 吾爱破解相关URL
-URL_HOME = 'https://www.52pojie.cn/'
-URL_TASK_APPLY = 'https://www.52pojie.cn/home.php?mod=task&do=apply&id=2&referer=%2F'
-# URL_TASK_DRAW = 'https://www.52pojie.cn/home.php?mod=task&do=draw&id=2' # 似乎未使用
-URL_WAF_VERIFY = 'https://www.52pojie.cn/waf_zw_verify'
-EXTERNAL_SIGN_API = "https://52pojie-sign-sever.zzboy.tk/api/52pojie" # 注意：依赖外部API
+# 网站URL
+URL_BASE: str = "https://www.52pojie.cn/"
+URL_HOME: str = URL_BASE
+URL_TASK_PAGE: str = URL_BASE + "home.php?mod=task&do=apply&id=2&referer=%2F"
+URL_WAF_VERIFY: str = URL_BASE + "waf_zw_verify"
+
+# 外部API URL
+URL_EXTERNAL_SIGN_API: str = "https://52pojie-sign-sever.zzboy.tk/api/52pojie"
+URL_LOG_WEBHOOK: str = "https://zcbwebhook.azurewebsites.net/api/logs" # 日志上报
 
 # 请求头
-HEADERS = {
+COMMON_HEADERS: Dict[str, str] = {
     "Connection": "keep-alive",
     "Pragma": "no-cache",
     "Cache-Control": "no-cache",
     "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", # 更新了UA
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36", # 更新UA
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-User": "?1",
     "Sec-Fetch-Dest": "document",
-    "sec-ch-ua": "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"",
+    "sec-ch-ua": '"Chromium";v="110", "Not A(Brand";v="24", "Google Chrome";v="110"',
     "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": "\"Windows\"",
-    "Referer": "https://www.52pojie.cn/",
+    "sec-ch-ua-platform": '"Windows"',
+    "Referer": URL_BASE,
     "Accept-Encoding": "gzip, deflate, br",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
-# --- 配置区域结束 ---
 
-def parse_cookie_string(cookie_str):
-    """解析单个cookie字符串为requests库所需的字典格式，并提取特定键值"""
-    cookie_str_unquoted = urllib.parse.unquote(cookie_str)
-    cookie_dict = {}
-    required_values = {'htVC_2132_auth': None, 'htVC_2132_saltkey': None}
+# 网络请求超时时间（秒）
+REQUEST_TIMEOUT: int = 30
 
-    for item in cookie_str_unquoted.split(';'):
-        item = item.strip()
-        if not item:
-            continue
-        if '=' in item:
-            key, value = item.split('=', 1)
-            if key in required_values:
-                required_values[key] = urllib.parse.quote(value) # 重新URL编码以备用
+# --- 辅助函数 ---
 
-    if not all(required_values.values()):
-        missing_keys = [k for k, v in required_values.items() if v is None]
-        return None, f"Cookie中未包含以下关键字段: {', '.join(missing_keys)}"
-
-    # requests库可以直接使用分号分隔的cookie字符串，但为了明确，这里构造字典
-    # 实际上requests的cookies参数可以直接接受分号连接的字符串，
-    # 但为了显式控制和检查，这里我们解析并只使用我们关心的部分构造字典。
-    # 如果要使用requests自动处理，可以直接传递原始的cookie_str_unquoted。
-    # 但原脚本逻辑是提取特定键值，我们遵循此逻辑。
-    # 然而，requests 的 `cookies` 参数接受一个字典，键是 cookie 名称，值是 cookie 值。
-    # 所以，这里应该返回一个可以直接用于 `requests.get/post` 的 cookies 参数的字典。
-    # 这里的 `required_values` 就是我们要的字典。
-    return required_values, None
-
-
-def process_account(account_index, raw_cookie_str, token):
-    """处理单个吾爱破解账户的签到流程"""
-    message = ""
-    print(f"--- 开始处理第 {account_index} 个账号 ---")
-
-    cookie_dict, error_msg = parse_cookie_string(raw_cookie_str)
-    if error_msg:
-        print(f"第 {account_index} 个账号 Cookie 解析失败: {error_msg}")
-        return f"第 {account_index} 个账号 Cookie 解析失败: {error_msg}"
-
-    session = requests.session()
-    session.headers.update(HEADERS) # 更新会话的默认请求头
-    # 对于requests的cookies参数，它应该是一个字典。
-    # 我们传递解析后的cookie_dict
+def parse_cookie_str(cookie_str: str) -> Tuple[Optional[Dict[str, str]], str]:
+    """
+    解析原始Cookie字符串，提取必要的键值对。
+    返回 (解析后的cookie字典, 错误信息或None)
+    """
+    if not cookie_str:
+        return None, "Cookie字符串为空"
 
     try:
-        # 1. 访问首页检查登录状态和签到状态
-        print(f"账号 {account_index}: 访问首页...")
-        r_home = session.get(URL_HOME, cookies=cookie_dict)
-        r_home.raise_for_status() # 如果请求失败则抛出异常
-        soup_home = BeautifulSoup(r_home.text, "html.parser")
+        decoded_cookie = urllib.parse.unquote(cookie_str)
+    except Exception as e:
+        return None, f"Cookie解码失败: {e}"
 
-        # 检查是否需要登录 (如果找到登录按钮，则表示Cookie失效)
-        login_button = soup_home.find('button', class_="pn vm")
-        if login_button is not None and "登录" in login_button.text:
-            message = f"第 {account_index} 个账号 Cookie 失效或已过期。"
-            print(message)
-            return message
+    cookies_for_requests = {}
+    required_keys = {"htVC_2132_saltkey", "htVC_2132_auth"}
+    found_keys = set()
 
-        # 检查今日是否已签到
-        # 吾爱破解的签到状态图片：
-        # 未签到: .../static/image/common/qds.png
-        # 已签到: .../static/image/common/wbs.png 或 hby_s.png (红包已领)
-        sign_img_elements = soup_home.select('img.qq_bind[src*="qds.png"], img.qq_bind[src*="wbs.png"], img.qq_bind[src*="hby_s.png"]')
+    for item in decoded_cookie.split(';'):
+        parts = item.split('=', 1)
+        if len(parts) == 2:
+            key, value = parts[0].strip(), parts[1].strip()
+            if key in required_keys:
+                # requests库会自动处理cookie值的编码，无需手动quote
+                cookies_for_requests[key] = value
+                found_keys.add(key)
+            # 可以考虑也加入其他cookie，如果网站需要的话
+            # elif key.startswith("htVC_2132_"):
+            #     cookies_for_requests[key] = value
 
-        if not sign_img_elements:
-            # 如果没有找到签到相关的图片，可能是页面结构改变或者cookie问题
-            # 进一步检查用户名是否存在来判断是否真的登录
-            user_info_element = soup_home.select_one('#umenu > p:nth-child(1) > strong > a')
-            if not user_info_element:
-                message = f"第 {account_index} 个账号 Cookie 失效 (无法找到用户信息)。"
-                print(message)
-                return message
-            else:
-                # 这种情况比较少见，可能是不再显示签到图标或有其他提示
-                print(f"第 {account_index} 个账号：未找到明确的签到状态图片，但用户已登录。尝试继续签到流程。")
-                # 此时不直接返回，尝试继续签到流程，后续步骤会再次确认
 
-        elif any("qds.png" not in img['src'] for img in sign_img_elements):
-             # 如果存在任何一个非qds.png的图片 (如wbs.png, hby_s.png), 则认为已签到
-            message = f"第 {account_index} 个账号今日已签到 (通过首页图片判断)。"
-            print(message)
-            return message
+    if not required_keys.issubset(found_keys):
+        missing = ", ".join(list(required_keys - found_keys))
+        return None, f"Cookie中缺失必需字段: {missing}"
+    
+    return cookies_for_requests, ""
+
+
+def check_status_and_get_params(
+    session: requests.Session,
+    user_cookies: Dict[str, str]
+) -> Tuple[str, Optional[Dict[str, str]]]:
+    """
+    访问首页检查登录和签到状态，如果未签到则获取签到参数。
+    返回 (状态消息, 签到参数字典或None)
+    """
+    try:
+        response = session.get(URL_HOME, headers=COMMON_HEADERS, cookies=user_cookies, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # 1. 检查是否需要登录
+        if soup.find('button', class_="pn vm") is not None:
+            return "Cookie失效 (需要登录)", None
+
+        # 2. 检查是否已签到 (通过图片 src)
+        sign_images = soup.find_all('img', class_="qq_bind") # 假设class是正确的
+        qds_icon_found = False # 未签到图标 "qds.png"
+        wbs_icon_found = False # 已签到/未补签图标 "wbs.png"
         
-        print(f"账号 {account_index}: 检测到未签到 (qds.png)，尝试签到...")
-
-        # 2. 访问任务页面获取签到参数
-        print(f"账号 {account_index}: 访问任务页面获取参数...")
-        r_task_page = session.get(URL_TASK_APPLY, cookies=cookie_dict)
-        r_task_page.raise_for_status()
-        task_page_content = r_task_page.text
-
-        # 使用re.search可能更安全，因为它匹配字符串中任何位置的模式
-        # re.match只从字符串开头匹配
-        match_lz_lj = re.search(r" renversement\('(\d{4,})'\).* renversement\('(\d{4,})'\)", task_page_content, re.S)
-        # 原正则: pattern = r".*='([0-9]{4,})'.*='([0-9]{4,})'.*"
-        # 在实际页面中，参数可能是被包裹在 renversement JS函数中的，例如：
-        # <script> renversement('XXXX'); renversement('YYYY'); </script>
-        # 或者在 input hidden 的 value 中。需要根据实际页面结构调整。
-        # 假设这里的参数是直接在 JS 变量或隐藏域中。
-        # 为了安全，这里使用一个更通用的方式寻找数字。
-        # 更新：根据原脚本的上下文，这些参数似乎是为了一个外部API。
-        # 我们暂时保留原有的匹配逻辑，但加上re.S
-
-        # 如果上面的找不到，尝试原作者的正则
-        if not match_lz_lj:
-             match_lz_lj = re.search(r".*='([0-9]{4,})'.*='([0-9]{4,})'.*", task_page_content, re.S)
-
-        if not match_lz_lj:
-            message = f"第 {account_index} 个账号获取签到参数 (lz, lj) 失败。页面内容可能已更改。"
-            print(message)
-            print("获取参数失败的页面片段:", task_page_content[:500]) # 打印部分内容用于调试
-            return message
-        lz, lj = match_lz_lj.group(1), match_lz_lj.group(2)
-
-        match_le = re.search(r".*='([a-zA-Z0-9/+]{40,})'.*", task_page_content, re.S)
-        if not match_le:
-            message = f"第 {account_index} 个账号获取签到参数 (le) 失败。页面内容可能已更改。"
-            print(message)
-            print("获取参数失败的页面片段:", task_page_content[:500])
-            return message
-        le = match_le.group(1)
-        print(f"账号 {account_index}: 获取到参数 lz, lj, le。")
-
-        # 3. 调用外部API获取WAF验证数据
-        print(f"账号 {account_index}: 调用外部API获取WAF验证数据...")
-        api_payload = {"lz": lz, "lj": lj, "le": le, "token": token}
-        try:
-            r_api = requests.post(EXTERNAL_SIGN_API, json=api_payload, timeout=30)
-            r_api.raise_for_status()
-            waf_data_str = r_api.text # API返回的应该是字符串格式的data
-            if not waf_data_str.strip(): # 检查返回是否为空
-                 raise ValueError("外部API返回了空的WAF数据")
-            print(f"账号 {account_index}: 外部API调用成功。")
-        except requests.exceptions.RequestException as e:
-            print(f"第 {account_index} 个账号调用外部API失败: {e}")
-            print("请前往“https://zhustatus.azurewebsites.net/”查看“52POJIE-SIGN”的运行状态 (如果API提供者是该网站)")
-            message = f"第 {account_index} 个账号调用外部签到API失败: {e}"
-            return message
-        except ValueError as e:
-            print(f"第 {account_index} 个账号调用外部API后获取数据异常: {e}")
-            message = f"第 {account_index} 个账号调用外部签到API后数据异常: {e}"
-            return message
-
-
-        # 4. 提交WAF验证
-        print(f"账号 {account_index}: 提交WAF验证...")
-        # waf_data 应该是 key=value&key=value 格式的字符串
-        # 如果API返回的是JSON，需要转换；如果直接是form-data字符串，则直接用
-        # 假设API直接返回了可用于POST的字符串数据
-        r_waf = session.post(URL_WAF_VERIFY, cookies=cookie_dict, data=waf_data_str)
-        r_waf.raise_for_status()
-        # print(f"账号 {account_index}: WAF验证提交响应状态: {r_waf.status_code}")
-        # print(f"账号 {account_index}: WAF响应内容片段: {r_waf.text[:200]}")
-
-
-        # 5. 再次访问任务页面以完成/确认签到
-        # 这一步是关键，因为之前的apply只是领取任务，这一步可能是通过访问来触发完成，或者检查结果
-        print(f"账号 {account_index}: 再次访问任务页面确认签到状态...")
-        r_task_final = session.get(URL_TASK_APPLY, cookies=cookie_dict)
-        r_task_final.raise_for_status()
-        soup_final = BeautifulSoup(r_task_final.text, "html.parser")
+        for img_node in sign_images:
+            src = img_node.get("src", "")
+            if src.endswith("qds.png"):
+                qds_icon_found = True
+                break
+            if src.endswith("wbs.png"):
+                wbs_icon_found = True
+                break
         
-        # 检查签到结果
-        msg_element = soup_final.find("div", id="messagetext")
-        if msg_element and msg_element.find("p"):
-            result_text = msg_element.find("p").text.strip()
-            print(f"账号 {account_index}: 签到结果消息: '{result_text}'")
-            if "您需要先登录才能继续本操作" in result_text:
-                message = f"第 {account_index} 个账号签到失败：Cookie失效 (操作中提示登录)。"
-            elif "恭喜您" in result_text or "已完成" in result_text or "任务已完成" in result_text:
-                message = f"第 {account_index} 个账号签到成功: {result_text}"
-            elif "不是进行中的任务" in result_text or "任务已过期" in result_text or "已申请过此任务" in result_text:
-                # "不是进行中的任务" 可能意味着已经签到过了，或者任务流程不对
-                message = f"第 {account_index} 个账号今日已签到或任务状态异常: {result_text}"
-            else:
-                message = f"第 {account_index} 个账号签到失败: {result_text}"
-        else:
-            # 如果没有找到标准的消息框，再次检查首页的签到图片
-            r_home_check = session.get(URL_HOME, cookies=cookie_dict)
-            soup_home_check = BeautifulSoup(r_home_check.text, "html.parser")
-            sign_img_elements_check = soup_home_check.select('img.qq_bind[src*="qds.png"], img.qq_bind[src*="wbs.png"], img.qq_bind[src*="hby_s.png"]')
-            if any("qds.png" not in img['src'] for img in sign_img_elements_check):
-                message = f"第 {account_index} 个账号签到成功 (通过最终首页图片确认)。"
-            else:
-                message = f"第 {account_index} 个账号签到失败：未能获取明确的签到结果消息，且首页仍显示未签到。"
-                print(f"账号 {account_index}: 最终确认页面内容片段: {r_task_final.text[:500]}")
+        if wbs_icon_found:
+            return "今日已签到 (图片状态wbs.png)", None
+        if not qds_icon_found and not wbs_icon_found: # 没有找到任何相关图标
+            return "无法确定签到状态 (未找到签到相关图片，可能页面结构改变或Cookie问题)", None
+        
+        # 如果找到qds.png (未签到)，则继续获取参数
+        if qds_icon_found:
+            task_response = session.get(URL_TASK_PAGE, headers=COMMON_HEADERS, cookies=user_cookies, timeout=REQUEST_TIMEOUT)
+            task_response.raise_for_status()
+            task_text = task_response.text
+        
+            match_lz_lj = re.search(r" renversement\('(\d{4,})'\).* renversement\('(\d{4,})'\)", task_text, re.S)
+            if not match_lz_lj:
+                match_lz_lj = re.search(r".*='([0-9]{4,})'.*='([0-9]{4,})'.*", task_text, re.S)
+
+            if not match_lz_lj:
+                return "未查询到签到参数", None
+            lz, lj = match_lz_lj.group(1), match_lz_lj.group(2)
+
+            match_le = re.search(r".*='([a-zA-Z0-9/+]{40,})'.*", task_text, re.S)
+            if not match_le:
+                return "未查询到签到参数", None
+            le = match_le.group(1)
+            return "待签到 (参数已获取)", {"lz": lz, "lj": lj, "le": le}
 
     except requests.exceptions.RequestException as e:
-        message = f"第 {account_index} 个账号处理时发生网络错误: {e}"
+        return f"网络请求失败: {e}", None
     except Exception as e:
-        message = f"第 {account_index} 个账号处理时发生未知错误: {e}"
+        return f"解析页面或获取参数时发生未知错误: {e}", None
     
-    print(message)
-    return message
+    return "未知初始状态", None # 默认情况
 
-def main():
-    # 从环境变量获取 TOKEN
-    pj52_token = os.environ.get("PJ52_TOKEN")
-    if not pj52_token:
-        print("错误：请在环境变量中设置 PJ52_TOKEN 的值。")
-        notify.send("吾爱破解签到错误", "环境变量 PJ52_TOKEN 未设置")
-        sys.exit(1)
 
-    # 从环境变量获取 COOKIEs
-    cookies_env = os.environ.get("PJ52_COOKIE")
-    if not cookies_env:
-        print("错误：请在环境变量中设置 PJ52_COOKIE 的值。")
-        notify.send("吾爱破解签到错误", "环境变量 PJ52_COOKIE 未设置")
-        sys.exit(1)
+def execute_signin_flow(
+    session: requests.Session,
+    user_cookies: Dict[str, str],
+    signin_params: Dict[str, str],
+    global_token: str
+) -> str:
+    """执行签到流程，包括调用外部API和提交WAF验证."""
+    try:
+        # 1. 调用外部API获取WAF payload
+        external_api_payload = {
+            "lz": signin_params["lz"],
+            "lj": signin_params["lj"],
+            "le": signin_params["le"],
+            "token": global_token
+        }
+        external_api_response = requests.post(
+            URL_EXTERNAL_SIGN_API, json=external_api_payload, timeout=REQUEST_TIMEOUT
+        )
 
-    raw_cookie_list = cookies_env.split("&")
-    num_accounts = len(raw_cookie_list)
-    print(f"检测到 {num_accounts} 个账号配置。")
-
-    overall_summary = []
-
-    for i, raw_cookie in enumerate(raw_cookie_list):
-        account_num = i + 1
-        # 随机延时，避免请求过于频繁
-        if i > 0 : # 第一个账号不需要前置延时
-            delay = random.randint(SLEEP_TIME_RANGE[0], SLEEP_TIME_RANGE[1])
-            print(f"账号 {account_num}: 等待 {delay} 秒后开始处理...")
-            sleep(delay)
+        if external_api_response.status_code != 200:
+            try:
+                error_msg = external_api_response.json().get('msg', external_api_response.text)
+            except json.JSONDecodeError:
+                error_msg = external_api_response.text
+            return f"外部签名API调用失败 ({external_api_response.status_code}): {error_msg}. 请检查API状态: https://zhustatus.azurewebsites.net/"
         
-        result_message = process_account(account_num, raw_cookie.strip(), pj52_token)
-        notify.send(f"吾爱破解签到通知 (账号 {account_num})", result_message)
-        overall_summary.append(result_message)
-        print(f"--- 第 {account_num} 个账号处理完毕 ---\n")
+        waf_payload_data = external_api_response.text # 假设API直接返回waf_verify所需data字符串
 
-    print("所有账号处理完成。")
-    if num_accounts > 1 :
-        final_summary_message = "吾爱破解签到任务总结:\n" + "\n".join(overall_summary)
-        # 对于多账号，可以发送一个总的通知，如果notify支持长消息的话
-        # notify.send("吾爱破解签到总结", final_summary_message)
-        print(final_summary_message)
+        # 2. 提交WAF验证
+        waf_response = session.post(
+            URL_WAF_VERIFY, headers=COMMON_HEADERS, cookies=user_cookies, data=waf_payload_data, timeout=REQUEST_TIMEOUT
+        )
+        waf_response.raise_for_status() # 检查WAF提交是否成功 (HTTP层面)
+        # WAF验证成功通常是302跳转或200 OK但内容提示，这里假定成功后可继续
 
+        # 3. 再次访问任务页面或特定页面以确认/完成签到
+        # 原脚本是再次GET url2 (URL_TASK_PAGE)
+        final_check_response = session.get(URL_TASK_PAGE, headers=COMMON_HEADERS, cookies=user_cookies, timeout=REQUEST_TIMEOUT)
+        final_check_response.raise_for_status()
+        
+        soup = BeautifulSoup(final_check_response.text, "html.parser")
+        message_div = soup.find("div", id="messagetext")
+        
+        if not message_div:
+            return "签到结果未知 (未找到消息区域)"
+
+        message_p = message_div.find("p")
+        if not message_p:
+            return "签到结果未知 (未找到消息段落)"
+            
+        result_text = message_p.text.strip()
+
+        if "您需要先登录才能继续本操作" in result_text:
+            return "Cookie失效 (签到后验证)"
+        if "恭喜" in result_text:
+            return "签到成功"
+        if "不是进行中的任务" in result_text or "已完成" in result_text: # 有些情况是这个提示
+            return "今日已签到 (任务状态反馈)"
+        
+        return f"签到失败: {result_text}"
+
+    except requests.exceptions.RequestException as e:
+        return f"签到流程中网络请求失败: {e}"
+    except Exception as e:
+        return f"签到流程中发生未知错误: {e}"
+
+
+def process_single_user(
+    user_idx: int,
+    user_json_str: str,
+    global_token: str,
+    session: requests.Session
+) -> Dict[str, Any]:
+    """处理单个用户的完整签到流程."""
+    uid = "未知"
+    raw_cookie = user_json_str
+    if not raw_cookie:
+        msg = "Cookie信息缺失"
+        print(f"第 {user_idx} 个账号: {msg}")
+        return {"msg": msg, "status_code": "CONFIG_ERROR"}
+
+    user_cookies_dict, error_msg = parse_cookie_str(raw_cookie)
+    if error_msg:
+        print(f"第 {user_idx} 个账号 : {error_msg}")
+        return {"msg": error_msg, "status_code": "COOKIE_PARSE_ERROR"}
+
+    print(f"第 {user_idx} 个账号 : 开始处理...")
+    
+    status_message, sign_params = check_status_and_get_params(session, user_cookies_dict)
+
+    if status_message == "待签到 (参数已获取)" and sign_params:
+        print(f"第 {user_idx} 个账号 : 获取到签到参数，尝试执行签到...")
+        final_status_message = execute_signin_flow(session, user_cookies_dict, sign_params, global_token)
+        status_message = final_status_message # 更新最终状态
+    elif status_message is None and sign_params is None: # 未知情况
+        status_message = "检查状态时返回意外结果"
+
+
+    print(f"第 {user_idx} 个账号 : 最终状态 - {status_message}")
+    
+    status_code = "SUCCESS"
+    if "失败" in status_message or "失效" in status_message or "错误" in status_message or "未知" in status_message:
+        status_code = "FAILURE"
+    elif "已签到" in status_message:
+        status_code = "ALREADY_SIGNED"
+        
+    return {"msg": status_message, "status_code": status_code}
+
+
+# --- 主程序 ---
+def main():
+    global_token = os.environ.get("PJ52_TOKEN")
+    if not global_token:
+        print("错误: 请在环境变量填入PJ52_TOKEN的值")
+        sys.exit(1)
+
+    cookies_env_str = os.environ.get("PJ52_COOKIE")
+    if not cookies_env_str:
+        print("错误: 请在环境变量填写PJ52_COOKIE的值")
+        sys.exit(1)
+
+    user_configs = cookies_env_str.split("&")
+    session = requests.Session() # 所有用户共享一个会话
+
+    print(f"吾爱破解签到任务开始，共 {len(user_configs)} 个账号待处理。\n")
+
+    for idx, user_json_config in enumerate(user_configs, 1):
+        if idx > 1: # 第一个账号不等待
+            sleep_duration = random.randint(SLEEP_TIME_RANGE[0], SLEEP_TIME_RANGE[1])
+            print(f"\n--- 随机等待 {sleep_duration} 秒后处理下一个账号 ---")
+            sleep(sleep_duration)
+        
+        print(f"--- 开始处理第 {idx} 个账号 ---")
+        log_entry = process_single_user(idx, user_json_config, global_token, session)
+        # 单独通知每个账号的结果
+        notify.send(f"吾爱签到 - 账号 {idx}", log_entry["msg"])
+
+    print("\n--- 所有账号处理完毕 ---")
+
+    print("\n吾爱破解签到任务结束。")
 
 if __name__ == "__main__":
     main()
