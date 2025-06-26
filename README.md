@@ -23,4 +23,7 @@
 | 签到   |  Y   |
 | 多账户  |  Y   |
 
+此项目的 CDN 加速和安全防护由腾讯 EdgeOne 赞助。
+[最佳亚洲 CDN、边缘和安全解决方案 - Tencent EdgeOne](https://edgeone.ai/?from=github)
+[![Powered by Tencent EdgeOne](https://edgeone.ai/media/34fe3a45-492d-4ea4-ae5d-ea1087ca7b4b.png)](https://edgeone.ai/?from=github "最佳亚洲 CDN、边缘和安全解决方案 - Tencent EdgeOne")
 [![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
