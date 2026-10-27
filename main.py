@@ -43,7 +43,7 @@ URL_TASK_PAGE: str = URL_BASE + "home.php?mod=task&do=apply&id=2&referer=%2F"
 URL_WAF_VERIFY: str = URL_BASE + "waf_zw_verify"
 
 # 外部API URL
-URL_EXTERNAL_SIGN_API: str = "https://52pojie-sign-sever.zzboy.tk/api/52pojie"
+URL_EXTERNAL_SIGN_API: str = "https://52pojie.zhucb.workers.dev/api/52pojie"
 
 # 请求头
 COMMON_HEADERS: Dict[str, str] = {
